@@ -42,10 +42,22 @@ action :install do
   end
 
   if install_version
-    Chef::Log.info("Installing #{@new_resource} version #{install_version}")
-    status = install_package(@new_resource.package_name, install_version, timeout)
-    if status
-      @new_resource.updated_by_last_action(true)
+    editable = nil
+    if @new_resource.options
+      editable = @new_resource.options.match(/(?:\s|^)(?:-e|--editable)(?:\s)([\S]+)/)
+    end
+    if editable
+      Chef::Log.info("Installing #{@new_resource} editable #{editable.captures[0]}")
+      status = install_package_no_version(@new_resource.package_name, timeout)
+      if status
+        @new_resource.updated_by_last_action(true)
+      end
+    else
+      Chef::Log.info("Installing #{@new_resource} version #{install_version}")
+      status = install_package(@new_resource.package_name, install_version, timeout)
+      if status
+        @new_resource.updated_by_last_action(true)
+      end
     end
   end
 end
@@ -143,6 +155,10 @@ end
 def install_package(name, version, timeout)
   v = "==#{version}" unless version.eql?('latest')
   shell_out!("#{pip_cmd(@new_resource)} install#{expand_options(@new_resource.options)} #{name}#{v}", :timeout => timeout)
+end
+
+def install_package_no_version(name, timeout)
+  shell_out!("#{pip_cmd(@new_resource)} install#{expand_options(@new_resource.options)}", :timeout => timeout)
 end
 
 def upgrade_package(name, version, timeout)
